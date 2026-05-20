@@ -209,30 +209,119 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 function renderResults(tracks){const g=document.getElementById('rg');g.innerHTML='';document.getElementById('rl').textContent=`Results — ${tracks.length}`;tracks.forEach(t=>{const c=document.createElement('div');c.className='rc';c.innerHTML=`${t.img?`<img class="rca" src="${t.img}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="rcaph" style="display:none">🎵</div>`:`<div class="rcaph">🎵</div>`}<div class="rco">▶</div><div class="rci"><div class="rct">${esc(t.name)}</div><div class="rcar">${esc(t.artist)}</div></div><button class="radd">+</button>`;c.querySelector('.radd').onclick=e=>{e.stopPropagation();addQ(t);};c.onclick=()=>{addQ(t);playIdx(A.queue.length-1);};g.appendChild(c);});}
 function addQ(t){if(A.queue.find(x=>x.id===t.id)){toast('Already in queue');return;}A.queue.push(t);renderQ();toast('Added to queue');}
 function renderQ(){document.getElementById('qc').textContent=A.queue.length||'';const l=document.getElementById('ql');if(!A.queue.length){l.innerHTML='<div class="qempty">Empty queue.<br>Search and add songs.</div>';return;}l.innerHTML='';A.queue.forEach((t,i)=>{const el=document.createElement('div');el.className='qi'+(i===A.idx?' on':'');el.innerHTML=`${t.img?`<img class="qa" src="${t.img}" loading="lazy">`:`<div class="qaph">🎵</div>`}<div class="qinfo"><div class="qt">${esc(t.name)}</div><div class="qar">${esc(t.artist)}</div></div><button class="qrm">✕</button>`;el.onclick=e=>{if(e.target.classList.contains('qrm'))return;playIdx(i);};el.querySelector('.qrm').onclick=e=>{e.stopPropagation();A.queue.splice(i,1);if(A.idx===i){A.idx=-1;reset();}else if(A.idx>i)A.idx--;renderQ();};l.appendChild(el);});}
-async function playIdx(i){if(i<0||i>=A.queue.length)return;A.idx=i;const t=A.queue[i];document.getElementById('naw').innerHTML=t.img?`<img class="nart" src="${t.img}">`:`<div class="nartph">🎵</div>`;document.getElementById('ntitle').textContent=t.name||'Unknown';document.getElementById('nartist').textContent=t.artist||'Unknown';renderQ();if(!YT_READY){toast('Player loading');return;}toast('Finding on YouTube...');try{const res=await fetch(SUPABASE_FUNC+`?q=${encodeURIComponent(t.q)}`);const d=await res.json();if(d.videos&&d.videos[0]){YT.cueVideoById(d.videos[0]);setTimeout(()=>YT.playVideo(),300);}else{toast('Not found on YouTube');}}catch(e){toast('Search failed');}}
-function reset(){if(YT_READY)try{YT.stopVideo();}catch(e){}clearInterval(progInt);document.getElementById('naw').innerHTML='<div class="nartph">🎵</div>';document.getElementById('ntitle').textContent='Nothing playing';document.getElementById('nartist').textContent='—';document.getElementById('pf').style.width='0%';document.getElementById('tc').textContent='0:00';document.getElementById('tt').textContent='0:00';A.playing=false;document.getElementById('play').textContent='▶';document.getElementById('play').classList.remove('playing');}
-function togglePlay(){if(A.idx===-1&&A.queue.length>0){playIdx(0);return;}if(A.idx===-1||!YT_READY)return;try{A.playing?YT.pauseVideo():YT.playVideo();}catch(e){}}
-function nextT(){if(!A.queue.length)return;playIdx(A.shuffle?Math.floor(Math.random()*A.queue.length):(A.idx+1)%A.queue.length);}
-function prevT(){if(!A.queue.length)return;try{if(YT_READY&&YT.getCurrentTime()>3){YT.seekTo(0);return;}}catch(e){}playIdx((A.idx-1+A.queue.length)%A.queue.length);}
-function fmt(s){return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');}
-document.getElementById('pbr').onclick=e=>{if(!YT_READY)return;try{const d=YT.getDuration()||0;if(!d)return;const r=e.currentTarget.getBoundingClientRect();YT.seekTo(((e.clientX-r.left)/r.width)*d,true);}catch(e){}};
-document.getElementById('vol').oninput=function(){A.vol=+this.value;try{if(YT_READY)YT.setVolume(A.vol*100);}catch(e){}};
-document.getElementById('play').onclick=togglePlay;
+async function playIdx(i){
+  if(i<0||i>=A.queue.length)return;
+  A.idx=i;
+  renderQ();
+  const t=A.queue[i];
+  
+  // Update Now Playing UI state
+  document.getElementById('ntitle').textContent=t.name;
+  document.getElementById('nartist').textContent=t.artist;
+  document.getElementById('naw').innerHTML=t.img?`<img class="nart" src="${t.img}">`:`<div class="nartph">🎵</div>`;
+  
+  toast('Loading track from YouTube...');
+  
+  try {
+    // Fetch the YouTube Video ID from your Supabase function
+    const r=await fetch(SUPABASE_FUNC,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({query:t.q,effect:A.effect})
+    });
+    if(r.ok){
+      const d=await r.json();
+      const yId=d.videoId||d.id||null;
+      if(yId && YT && YT_READY){
+        YT.loadVideoById(yId);
+        return;
+      }
+    }
+  }catch(e){console.error("Supabase error:",e);}
+  
+  toast('Track unavailable on YouTube');
+  setTimeout(nextT,1200);
+}
+
+function nextT(){
+  if(A.idx+1<A.queue.length)playIdx(A.idx+1);
+  else toast('End of Queue');
+}
+
+function reset(){
+  if(YT && YT_READY)YT.stopVideo();
+  document.getElementById('ntitle').textContent='Nothing playing';
+  document.getElementById('nartist').textContent='—';
+  document.getElementById('naw').innerHTML=`<div class="nartph">🎵</div>`;
+  document.getElementById('pf').style.width='0%';
+  document.getElementById('tc').textContent='0:00';
+  document.getElementById('tt').textContent='0:00';
+}
+
+function toast(m){
+  const t=document.getElementById('toast');
+  t.textContent=m;t.classList.add('on');
+  setTimeout(()=>t.classList.remove('on'),2500);
+}
+
+function fmt(s){
+  const m=Math.floor(s/60),r=Math.floor(s%60);
+  return `${m}:${r<10?'0':''}${r}`;
+}
+
+function mvAnim(){}
+
+// --- SEARCH TRIGGER FUNCTIONS ---
+
+// Trigger search function when clicking the magnifying glass
+document.getElementById('sbtn').onclick = triggerSearch;
+
+// Trigger search function when pressing 'Enter' inside the input box
+document.getElementById('si').onkeydown = (e) => {
+  if (e.key === 'Enter') triggerSearch();
+};
+
+// The core search coordinator function
+async function triggerSearch() {
+  const q = document.getElementById('si').value.trim();
+  if (!q) return; 
+  
+  document.getElementById('hero').style.display = 'none';
+  document.getElementById('rs').style.display = 'none';
+  document.getElementById('spin').classList.add('on');
+  
+  const tracks = await search(q);
+  
+  document.getElementById('spin').classList.remove('on');
+  document.getElementById('rs').style.display = 'block';
+  
+  renderResults(tracks);
+}
+
+// --- CONTROLS LISTENERS ---
+document.getElementById('play').onclick=()=>{
+  if(!YT||!YT_READY||A.idx===-1)return;
+  A.playing?YT.pauseVideo():YT.playVideo();
+};
 document.getElementById('next').onclick=nextT;
-document.getElementById('prev').onclick=prevT;
-document.getElementById('loop').onclick=function(){A.loop=!A.loop;this.classList.toggle('on',A.loop);};
-document.getElementById('shuf').onclick=function(){A.shuffle=!A.shuffle;this.classList.toggle('on',A.shuffle);};
-const EC={normal:[255,60,180],'8d':[60,200,255],'16d':[100,120,255],reverb:[180,100,255],slowed:[60,180,255],sped:[255,80,60],bassboost:[255,120,0],nightcore:[255,200,80],lofi:[180,140,100],vaporwave:[200,80,255]};
-const ES={normal:{rate:1},slowed:{rate:.75},sped:{rate:1.5},nightcore:{rate:1.3},vaporwave:{rate:.75},lofi:{rate:.9},bassboost:{rate:1},'8d':{rate:1},'16d':{rate:1},reverb:{rate:1}};
-document.querySelectorAll('.eb').forEach(btn=>{btn.onclick=()=>{document.querySelectorAll('.eb').forEach(x=>x.classList.remove('on'));btn.classList.add('on');A.effect=btn.dataset.e;document.getElementById('badge').textContent=A.effect.toUpperCase();const s=ES[A.effect]||ES.normal;try{if(YT_READY)YT.setPlaybackRate(s.rate||1);}catch(e){}const c=EC[A.effect]||[255,60,180];if(!A.autoRgb){setRGB(c[0],c[1],c[2]);document.querySelectorAll('.dot').forEach(x=>x.classList.remove('on'));}toast('Effect: '+A.effect.toUpperCase());};});
-async function doSearch(){const q=document.getElementById('si').value.trim();if(!q)return;document.getElementById('hero').style.display='none';document.getElementById('rs').style.display='none';document.getElementById('spin').classList.add('on');try{const tracks=await search(q);document.getElementById('spin').classList.remove('on');if(!tracks.length){toast('No results found');document.getElementById('hero').style.display='flex';return;}document.getElementById('rs').style.display='block';renderResults(tracks);}catch(e){document.getElementById('spin').classList.remove('on');toast('Search failed');document.getElementById('hero').style.display='flex';}}
-document.getElementById('sbtn').onclick=doSearch;
-document.getElementById('si').addEventListener('keydown',e=>{if(e.key==='Enter'){document.getElementById('si').blur();doSearch();}});
-document.addEventListener('keydown',e=>{if(e.target===document.getElementById('si'))return;if(e.code==='Space'){e.preventDefault();togglePlay();}if(e.code==='ArrowRight')nextT();if(e.code==='ArrowLeft')prevT();});
-const mc=document.getElementById('mvz'),mx=mc.getContext('2d');mc.width=36;mc.height=24;let mph=0;
-function mvAnim(){if(!A.playing)return;mx.clearRect(0,0,36,24);const r=getComputedStyle(document.documentElement).getPropertyValue('--r').trim(),g=getComputedStyle(document.documentElement).getPropertyValue('--g').trim(),b=getComputedStyle(document.documentElement).getPropertyValue('--b').trim();mph+=.2;for(let i=0;i<5;i++){const h=3+Math.abs(Math.sin(mph+i*.9))*18;mx.fillStyle=`rgba(${r},${g},${b},.85)`;mx.fillRect(i*7,24-h,5,h);}}
-setInterval(()=>{if(!A.playing)mx.clearRect(0,0,36,24);},200);
-let tT;function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('on');clearTimeout(tT);tT=setTimeout(()=>t.classList.remove('on'),2400);}
+document.getElementById('prev').onclick=()=>{if(A.idx>0)playIdx(A.idx-1);};
+document.getElementById('vol').oninput=(e)=>{
+  A.vol=e.target.value;
+  if(YT&&YT_READY)YT.setVolume(A.vol*100);
+};
+document.getElementById('loop').onclick=()=>{
+  A.loop=!A.loop;
+  document.getElementById('loop').classList.toggle('on',A.loop);
+};
+document.querySelectorAll('.eb').forEach(b=>{
+  b.onclick=()=>{
+    document.querySelectorAll('.eb').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    A.effect=b.dataset.e;
+    document.getElementById('badge').textContent=A.effect.toUpperCase();
+    if(A.idx!==-1)playIdx(A.idx);
+  };
+});
 </script>
 </body>
 </html>
