@@ -195,27 +195,163 @@ canvas#mvz{width:36px;height:24px;flex-shrink:0;}
 const SUPABASE_FUNC='https://tmvsrdbkgtlnpyjfzgln.supabase.co/functions/v1/smooth-endpoint';
 const A={queue:[],idx:-1,playing:false,effect:'normal',loop:false,shuffle:false,autoRgb:false,autoInt:null,hue:0,vol:0.8};
 let YT=null,YT_READY=false,progInt=null;
+
 function setRGB(r,g,b){['--r','--g','--b'].forEach((v,i)=>document.documentElement.style.setProperty(v,[r,g,b][i]));}
-document.querySelectorAll('.dot').forEach(d=>{d.onclick=()=>{document.querySelectorAll('.dot,.dauto').forEach(x=>x.classList.remove('on'));d.classList.add('on');stopAuto();setRGB(d.dataset.r,d.dataset.g,d.dataset.b);};});
+
+document.querySelectorAll('.dot').forEach(d=>{
+  d.onclick=()=>{
+    document.querySelectorAll('.dot,.dauto').forEach(x=>x.classList.remove('on'));
+    d.classList.add('on');
+    stopAuto();
+    setRGB(d.dataset.r,d.dataset.g,d.dataset.b);
+  };
+});
+
 document.getElementById('dauto').onclick=()=>A.autoRgb?stopAuto():startAuto();
-function startAuto(){A.autoRgb=true;document.querySelectorAll('.dot').forEach(x=>x.classList.remove('on'));document.getElementById('dauto').classList.add('on');A.autoInt=setInterval(()=>{A.hue=(A.hue+.8)%360;const[r,g,b]=hsl(A.hue/360,1,.55);setRGB(Math.round(r),Math.round(g),Math.round(b));},40);}
-function stopAuto(){A.autoRgb=false;document.getElementById('dauto').classList.remove('on');clearInterval(A.autoInt);}
-function hsl(h,s,l){let r,g,b;if(!s){r=g=b=l;}else{const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q,H=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<.5)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};r=H(p,q,h+1/3);g=H(p,q,h);b=H(p,q,h-1/3);}return[r*255,g*255,b*255];}
-window.onYouTubeIframeAPIReady=()=>{YT=new YT.Player('yt-player',{height:1,width:1,playerVars:{autoplay:0,controls:0,fs:0,rel:0},events:{onReady:()=>{YT_READY=true;YT.setVolume(A.vol*100);},onStateChange:e=>{if(e.data===YT.PlayerState.PLAYING){onPlay();}else if(e.data===YT.PlayerState.PAUSED){onPause();}else if(e.data===YT.PlayerState.ENDED){if(A.loop){YT.seekTo(0);YT.playVideo();}else nextT();}},onError:()=>{toast('Track unavailable');setTimeout(nextT,1200);}}});};
-function onPlay(){A.playing=true;document.getElementById('play').textContent='⏸';document.getElementById('play').classList.add('playing');clearInterval(progInt);progInt=setInterval(()=>{if(!YT||!YT_READY)return;try{const c=YT.getCurrentTime()||0,d=YT.getDuration()||0;if(d>0){document.getElementById('pf').style.width=(c/d*100)+'%';document.getElementById('tc').textContent=fmt(c);document.getElementById('tt').textContent=fmt(d);}mvAnim();}catch(e){}},500);}
-function onPause(){A.playing=false;document.getElementById('play').textContent='▶';document.getElementById('play').classList.remove('playing');clearInterval(progInt);}
-async function search(q){try{const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&limit=20&entity=song`);if(r.ok){const d=await r.json();return(d.results||[]).map(t=>({id:String(t.trackId),name:t.trackName||'',artist:t.artistName||'',img:(t.artworkUrl100||'').replace('100x100','300x300'),q:`${t.artistName} ${t.trackName}`}));}}catch(e){}return[];}
+
+function startAuto(){
+  A.autoRgb=true;
+  document.querySelectorAll('.dot').forEach(x=>x.classList.remove('on'));
+  document.getElementById('dauto').classList.add('on');
+  A.autoInt=setInterval(()=>{
+    A.hue=(A.hue+.8)%360;
+    const[r,g,b]=hsl(A.hue/360,1,.55);
+    setRGB(Math.round(r),Math.round(g),Math.round(b));
+  },40);
+}
+
+function stopAuto(){
+  A.autoRgb=false;
+  document.getElementById('dauto').classList.remove('on');
+  clearInterval(A.autoInt);
+}
+
+function hsl(h,s,l){
+  let r,g,b;
+  if(!s){r=g=b=l;}else{
+    const q=l<.5?l*(1+s):l+s-l*s,p=2*l-q,
+    H=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<.5)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+    r=H(p,q,h+1/3);g=H(p,q,h);b=H(p,q,h-1/3);
+  }
+  return[r*255,g*255,b*255];
+}
+
+window.onYouTubeIframeAPIReady=()=>{
+  YT=new YT.Player('yt-player',{
+    height:1,
+    width:1,
+    playerVars:{autoplay:0,controls:0,fs:0,rel:0},
+    events:{
+      onReady:()=>{YT_READY=true;YT.setVolume(A.vol*100);},
+      onStateChange:e=>{
+        if(e.data===YT.PlayerState.PLAYING){
+          onPlay();
+        }else if(e.data===YT.PlayerState.PAUSED){
+          onPause();
+        }else if(e.data===YT.PlayerState.ENDED){
+          if(A.loop){YT.seekTo(0);YT.playVideo();}else nextT();
+        }
+      },
+      onError:()=>{toast('Track unavailable');setTimeout(nextT,1200);}
+    }
+  });
+};
+
+function onPlay(){
+  A.playing=true;
+  document.getElementById('play').textContent='⏸';
+  document.getElementById('play').classList.add('playing');
+  clearInterval(progInt);
+  progInt=setInterval(()=>{
+    if(!YT||!YT_READY)return;
+    try{
+      const c=YT.getCurrentTime()||0,d=YT.getDuration()||0;
+      if(d>0){
+        document.getElementById('pf').style.width=(c/d*100)+'%';
+        document.getElementById('tc').textContent=fmt(c);
+        document.getElementById('tt').textContent=fmt(d);
+      }
+      mvAnim();
+    }catch(e){}
+  },500);
+}
+
+function onPause(){
+  A.playing=false;
+  document.getElementById('play').textContent='▶';
+  document.getElementById('play').classList.remove('playing');
+  clearInterval(progInt);
+}
+
+async function search(q){
+  try{
+    const r=await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(q)}&media=music&limit=20&entity=song`);
+    if(r.ok){
+      const d=await r.json();
+      return(d.results||[]).map(t=>({
+        id:String(t.trackId),
+        name:t.trackName||'',
+        artist:t.artistName||'',
+        img:(t.artworkUrl100||'').replace('100x100','300x300'),
+        q:`${t.artistName} ${t.trackName}`
+      }));
+    }
+  }catch(e){}
+  return [];
+}
+
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-function renderResults(tracks){const g=document.getElementById('rg');g.innerHTML='';document.getElementById('rl').textContent=`Results — ${tracks.length}`;tracks.forEach(t=>{const c=document.createElement('div');c.className='rc';c.innerHTML=`${t.img?`<img class="rca" src="${t.img}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="rcaph" style="display:none">🎵</div>`:`<div class="rcaph">🎵</div>`}<div class="rco">▶</div><div class="rci"><div class="rct">${esc(t.name)}</div><div class="rcar">${esc(t.artist)}</div></div><button class="radd">+</button>`;c.querySelector('.radd').onclick=e=>{e.stopPropagation();addQ(t);};c.onclick=()=>{addQ(t);playIdx(A.queue.length-1);};g.appendChild(c);});}
-function addQ(t){if(A.queue.find(x=>x.id===t.id)){toast('Already in queue');return;}A.queue.push(t);renderQ();toast('Added to queue');}
-function renderQ(){document.getElementById('qc').textContent=A.queue.length||'';const l=document.getElementById('ql');if(!A.queue.length){l.innerHTML='<div class="qempty">Empty queue.<br>Search and add songs.</div>';return;}l.innerHTML='';A.queue.forEach((t,i)=>{const el=document.createElement('div');el.className='qi'+(i===A.idx?' on':'');el.innerHTML=`${t.img?`<img class="qa" src="${t.img}" loading="lazy">`:`<div class="qaph">🎵</div>`}<div class="qinfo"><div class="qt">${esc(t.name)}</div><div class="qar">${esc(t.artist)}</div></div><button class="qrm">✕</button>`;el.onclick=e=>{if(e.target.classList.contains('qrm'))return;playIdx(i);};el.querySelector('.qrm').onclick=e=>{e.stopPropagation();A.queue.splice(i,1);if(A.idx===i){A.idx=-1;reset();}else if(A.idx>i)A.idx--;renderQ();};l.appendChild(el);});}
+
+function renderResults(tracks){
+  const g=document.getElementById('rg');
+  g.innerHTML='';
+  document.getElementById('rl').textContent=`Results — ${tracks.length}`;
+  tracks.forEach(t=>{
+    const c=document.createElement('div');
+    c.className='rc';
+    c.innerHTML=`${t.img?`<img class="rca" src="${t.img}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="rcaph" style="display:none">🎵</div>`:`<div class="rcaph">🎵</div>`}<div class="rco">▶</div><div class="rci"><div class="rct">${esc(t.name)}</div><div class="rcar">${esc(t.artist)}</div></div><button class="radd">+</button>`;
+    c.querySelector('.radd').onclick=e=>{e.stopPropagation();addQ(t);};
+    c.onclick=()=>{addQ(t);playIdx(A.queue.length-1);};
+    g.appendChild(c);
+  });
+}
+
+function addQ(t){
+  if(A.queue.find(x=>x.id===t.id)){toast('Already in queue');return;}
+  A.queue.push(t);
+  renderQ();
+  toast('Added to queue');
+}
+
+function renderQ(){
+  document.getElementById('qc').textContent=A.queue.length ? `(${A.queue.length})` : '';
+  const l=document.getElementById('ql');
+  if(!A.queue.length){
+    l.innerHTML='<div class="qempty">Empty queue.<br>Search and add songs.</div>';
+    return;
+  }
+  l.innerHTML='';
+  A.queue.forEach((t,i)=>{
+    const el=document.createElement('div');
+    el.className='qi'+(i===A.idx?' on':'');
+    el.innerHTML=`${t.img?`<img class="qa" src="${t.img}" loading="lazy">`:`<div class="qaph">🎵</div>`}<div class="qinfo"><div class="qt">${esc(t.name)}</div><div class="qar">${esc(t.artist)}</div></div><button class="qrm">✕</button>`;
+    el.onclick=e=>{if(e.target.classList.contains('qrm'))return;playIdx(i);};
+    el.querySelector('.qrm').onclick=e=>{
+      e.stopPropagation();
+      A.queue.splice(i,1);
+      if(A.idx===i){A.idx=-1;resetPlayer();}else if(A.idx>i)A.idx--;
+      renderQ();
+    };
+    l.appendChild(el);
+  });
+}
+
 async function playIdx(i){
   if(i<0||i>=A.queue.length)return;
   A.idx=i;
   renderQ();
   const t=A.queue[i];
   
-  // Update Now Playing UI state
   document.getElementById('ntitle').textContent=t.name;
   document.getElementById('nartist').textContent=t.artist;
   document.getElementById('naw').innerHTML=t.img?`<img class="nart" src="${t.img}">`:`<div class="nartph">🎵</div>`;
@@ -223,7 +359,6 @@ async function playIdx(i){
   toast('Loading track from YouTube...');
   
   try {
-    // Fetch the YouTube Video ID from your Supabase function
     const r=await fetch(SUPABASE_FUNC,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
@@ -240,7 +375,7 @@ async function playIdx(i){
   }catch(e){console.error("Supabase error:",e);}
   
   toast('Track unavailable on YouTube');
-  setTimeout(nextT,1200);
+  setTimeout(nextT,1220);
 }
 
 function nextT(){
@@ -248,7 +383,7 @@ function nextT(){
   else toast('End of Queue');
 }
 
-function reset(){
+function resetPlayer(){
   if(YT && YT_READY)YT.stopVideo();
   document.getElementById('ntitle').textContent='Nothing playing';
   document.getElementById('nartist').textContent='—';
@@ -272,16 +407,9 @@ function fmt(s){
 function mvAnim(){}
 
 // --- SEARCH TRIGGER FUNCTIONS ---
-
-// Trigger search function when clicking the magnifying glass
 document.getElementById('sbtn').onclick = triggerSearch;
+document.getElementById('si').onkeydown = (e) => { if (e.key === 'Enter') triggerSearch(); };
 
-// Trigger search function when pressing 'Enter' inside the input box
-document.getElementById('si').onkeydown = (e) => {
-  if (e.key === 'Enter') triggerSearch();
-};
-
-// The core search coordinator function
 async function triggerSearch() {
   const q = document.getElementById('si').value.trim();
   if (!q) return; 
@@ -313,6 +441,11 @@ document.getElementById('loop').onclick=()=>{
   A.loop=!A.loop;
   document.getElementById('loop').classList.toggle('on',A.loop);
 };
+document.getElementById('shuf').onclick=()=>{
+  A.shuffle=!A.shuffle;
+  document.getElementById('shuf').classList.toggle('on',A.shuffle);
+};
+
 document.querySelectorAll('.eb').forEach(b=>{
   b.onclick=()=>{
     document.querySelectorAll('.eb').forEach(x=>x.classList.remove('on'));
