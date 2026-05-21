@@ -241,9 +241,9 @@ window.onYouTubeIframeAPIReady=()=>{
     height:'100%',
     width:'100%',
 
-    playerVars:{autoplay:0,controls:0,fs:0,rel:0},
+        playerVars:{autoplay:0,controls:0,fs:0,rel:0},
     events:{
-      onReady:()=>{YT_READY=true;YT.setVolume(A.vol*100);},
+      onReady:()=>{YT_READY=true;player.setVolume(A.vol*100);},
       onStateChange:e=>{
         if(e.data===YT.PlayerState.PLAYING){
           onPlay();
@@ -382,8 +382,17 @@ async function playIdx(i){
 }
 
 function nextT(){
-  if(A.idx+1<A.queue.length)playIdx(A.idx+1);
-  else toast('End of Queue');
+  if(A.shuffle && A.queue.length > 1){
+    let rand = A.idx;
+    while(rand === A.idx) {
+      rand = Math.floor(Math.random() * A.queue.length);
+    }
+    playIdx(rand);
+  } else if(A.idx+1<A.queue.length){
+    playIdx(A.idx+1);
+  } else {
+    toast('End of Queue');
+  }
 }
 
 function resetPlayer(){
@@ -412,6 +421,13 @@ function mvAnim(){}
 // --- SEARCH TRIGGER FUNCTIONS ---
 document.getElementById('sbtn').onclick = triggerSearch;
 document.getElementById('si').onkeydown = (e) => { if (e.key === 'Enter') triggerSearch(); };
+document.getElementById('pbr').onclick=(e)=>{
+  if(!player||!YT_READY||A.idx===-1)return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const d = player.getDuration() || 0;
+  if(d > 0) player.seekTo(d * pct);
+};
 
 async function triggerSearch() {
   const q = document.getElementById('si').value.trim();
