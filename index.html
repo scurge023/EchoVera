@@ -445,33 +445,38 @@ async function playIdx(i){
   toast('Loading audio');
   
   try {
-    const r=await fetch(SUPABASE_FUNC,{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({query:t.q,effect:A.effect})
+    const r = await fetch(SUPABASE_FUNC, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: t.q })
     });
-        if(r.ok){
-      const d=await r.json();
-      // Your backend will pass back a playable stream URL or audio URL
+
+    if (r.ok) {
+      const d = await r.json();
       const streamUrl = d.streamUrl;
       
-      if(streamUrl){
+      if (streamUrl) {
         initAudioEngine();
-        if(audioCtx.state === 'suspended') await audioCtx.resume();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
         
         audioEl.src = streamUrl;
         applyAudioEffects();
         audioEl.play();
         player.setVolume(A.vol * 100);
-        return;
+        return; // Success! Exit the function cleanly.
       }
+    } else {
+      const errData = await r.json().catch(() => ({}));
+      console.error("Backend Error Response:", errData);
     }
-
-  }catch(e){console.error("Supabase error:",e);}
+  } catch(e) {
+    console.error("Supabase connection crash:", e);
+  }
   
+  // If we reach this point, something went wrong with the stream retrieval
   toast('Track unavailable');
-  setTimeout(nextT,1220);
-}
+  setTimeout(nextT, 1220);
+
 
 function nextT(){
   if(A.shuffle && A.queue.length > 1){
