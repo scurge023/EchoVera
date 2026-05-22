@@ -470,13 +470,13 @@ async function playIdx(i){
       console.error("Backend Error Response:", errData);
     }
   } catch(e) {
-    console.error("Supabase connection crash:", e);
+    console.error("Network Fetch Failure:", e);
   }
-  
-  // If we reach this point, something went wrong with the stream retrieval
+
+  // If code execution falls through here, the stream failed
   toast('Track unavailable');
   setTimeout(nextT, 1220);
-
+} // Closes playIdx cleanly
 
 function nextT(){
   if(A.shuffle && A.queue.length > 1){
@@ -485,12 +485,13 @@ function nextT(){
       rand = Math.floor(Math.random() * A.queue.length);
     }
     playIdx(rand);
-  } else if(A.idx+1<A.queue.length){
+  } else if(A.idx+1 < A.queue.length){
     playIdx(A.idx+1);
   } else {
     toast('End of Queue');
   }
-}
+} // Closes nextT cleanly
+
 
 function resetPlayer(){
   if(player && YT_READY)player.stopVideo();
