@@ -157,22 +157,21 @@ canvas#mvz{width:36px;height:24px;flex-shrink:0;}
   </div>
   <div class="sidebar"><div class="sl">Queue <span id="qc"></span></div><div id="ql"><div class="qempty">Empty queue.<br>Search and add songs.</div></div></div>
   <div class="main">
-    <div class="lbl">Effects</div>
+        <div class="lbl">Effects</div>
     <div class="effbar">
       <button class="eb on" data-e="normal">Normal</button>
       <button class="eb" data-e="8d">8D</button>
       <button class="eb" data-e="16d">16D</button>
-      <button class="eb" data-e="reverb">Reverb</button>
-      <button class="eb" data-e="slowed">Slowed</button>
+      <button class="eb" data-e="slowedreverb">Slowed & Reverb</button>
       <button class="eb" data-e="sped">Sped Up</button>
       <button class="eb" data-e="bassboost">Bass Boost</button>
       <button class="eb" data-e="nightcore">Nightcore</button>
       <button class="eb" data-e="lofi">Lo-Fi</button>
-      <button class="eb" data-e="vaporwave">Vaporwave</button>
     </div>
+
     <div id="rs" style="display:none"><div class="lbl" id="rl">Results</div><div class="rgrid" id="rg"></div></div>
     <div class="spin" id="spin"><span class="ld">Searching</span></div>
-    <div class="hero" id="hero"><div class="hero-ic">🎵</div><div class="hero-tx">Search any song or artist<br>Full tracks · Works everywhere · Free</div></div>
+    <div class="hero" id="hero"><div class="hero-ic">🎵</div><div class="hero-tx">Search any song or artist<br>Full tracks · Free</div></div>
   </div>
   <div class="pbar">
     <div class="ninfo"><div class="nartph" id="naw">🎵</div><div class="ntx"><div class="ntitle" id="ntitle">Nothing playing</div><div class="nartist" id="nartist">—</div></div><canvas id="mvz"></canvas></div>
@@ -235,28 +234,109 @@ function hsl(h,s,l){
   }
   return[r*255,g*255,b*255];
 }
+// Global audio engine states
+let audioCtx = null;
+let audioEl = new Audio();
+audioEl.crossOrigin = "anonymous";
+let sourceNode, bassNode, pannerNode, delayNode, reverbGain;
+let pannerTheta = 0;
+let pannerInterval = null;
 
-window.onYouTubeIframeAPIReady=()=>{
-  player=new YT.Player('yt-player',{
-    height:'100%',
-    width:'100%',
-
-        playerVars:{autoplay:0,controls:0,fs:0,rel:0},
-    events:{
-      onReady:()=>{YT_READY=true;player.setVolume(A.vol*100);},
-      onStateChange:e=>{
-        if(e.data===YT.PlayerState.PLAYING){
-          onPlay();
-        }else if(e.data===YT.PlayerState.PAUSED){
-          onPause();
-        }else if(e.data===YT.PlayerState.ENDED){
-          if(A.loop){player.seekTo(0);player.playVideo();}else nextT();
-        }
-      },
-      onError:()=>{toast('Track unavailable');setTimeout(nextT,1200);}
-    }
-  });
+// Simulate YouTube API ready state so your other controls don't break
+YT_READY = true; 
+player = {
+  playVideo: () => { audioEl.play(); onPlay(); },
+  pauseVideo: () => { audioEl.pause(); onPause(); },
+  stopVideo: () => { audioEl.pause(); audioEl.currentTime = 0; onPause(); },
+  seekTo: (sec) => { audioEl.currentTime = sec; },
+  getCurrentTime: () => audioEl.currentTime,
+  getDuration: () => audioEl.duration || 0,
+  setVolume: (v) => { audioEl.volume = v / 100; }
 };
+
+// Handle track ending naturally
+audioEl.onended = () => {
+  if(A.loop) {
+    audioEl.currentTime = 0;
+    audioEl.play();
+  } else {
+    nextT();
+  }
+};
+
+function initAudioEngine() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  
+  sourceNode = audioCtx.createMediaElementSource(audioEl);
+  bassNode = audioCtx.createBiquadFilter();
+  pannerNode = audioCtx.createStereoPanner ? audioCtx.createStereoPanner() : null;
+  
+  // Create Reverb / Echo effects nodes
+  delayNode = audioCtx.createDelay();
+  reverbGain = audioCtx.createGain();
+  
+  // Configure base effects
+  bassNode.type = "lowshelf";
+  bassNode.frequency.value = 150;
+  bassNode.gain.value = 0; // Default off
+  
+  delayNode.delayTime.value = 0.35; // Ideal reverb delay
+  reverbGain.gain.value = 0; // Default off
+
+  // Link everything together: Source -> Bass -> Panner -> Delay Loop -> Speakers
+  sourceNode.connect(bassNode);
+  
+  let lastNode = bassNode;
+  if (pannerNode) {
+    bassNode.connect(pannerNode);
+    lastNode = pannerNode;
+  }
+  
+  // Reverb split pipeline
+  lastNode.connect(audioCtx.destination);
+  lastNode.connect(delayNode);
+  delayNode.connect(reverbGain);
+  reverbGain.connect(audioCtx.destination);
+}
+
+function applyAudioEffects() {
+  if (!audioCtx) return;
+  
+  // Reset default rates
+  audioEl.playbackRate = 1.0;
+  bassNode.gain.value = 0;
+  reverbGain.gain.value = 0;
+  if (pannerInterval) { clearInterval(pannerInterval); pannerInterval = null; }
+  if (pannerNode) pannerNode.pan.value = 0;
+
+  const eff = A.effect;
+
+  if (eff === 'bassboost') {
+    bassNode.gain.value = 12; // Heavy punchy bass
+  } 
+  else if (eff === 'sped' || eff === 'nightcore') {
+    audioEl.playbackRate = eff === 'nightcore' ? 1.30 : 1.22;
+    if(eff === 'nightcore') bassNode.gain.value = 4; // Add punch to nightcore
+  } 
+  else if (eff === 'slowedreverb' || eff === 'lofi') {
+    audioEl.playbackRate = eff === 'lofi' ? 0.90 : 0.82; // True vintage slowdown
+    reverbGain.gain.value = eff === 'lofi' ? 0.25 : 0.45; // Deep atmospheric environment echo
+    if(eff === 'slowedreverb') {
+      bassNode.gain.value = 6; // Enhance deeper resonance
+    }
+  } 
+  else if (eff === '8d' || eff === '16d') {
+    if (pannerNode) {
+      const speed = eff === '8d' ? 0.06 : 0.12; // Spatial rotation pacing
+      pannerInterval = setInterval(() => {
+        pannerTheta += speed;
+        pannerNode.pan.value = Math.sin(pannerTheta); // Smooth left-to-right panning waves
+      }, 30);
+    }
+  }
+}
+
 
 function onPlay(){
   A.playing=true;
@@ -367,15 +447,23 @@ async function playIdx(i){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({query:t.q,effect:A.effect})
     });
-    if(r.ok){
+        if(r.ok){
       const d=await r.json();
-      const yId=d.videoId||d.id||null;
-            if(yId && player && YT_READY){
-        player.loadVideoById(yId);
-        player.setVolume(A.vol * 100); // Re-enforce volume setting on new video load
+      // Your backend will pass back a playable stream URL or audio URL
+      const streamUrl = d.streamUrl || d.url || (d.videoId ? `https://your-backend-stream-converter.workers.dev/stream?id=${d.videoId}` : null); 
+      
+      if(streamUrl){
+        initAudioEngine();
+        if(audioCtx.state === 'suspended') await audioCtx.resume();
+        
+        audioEl.src = streamUrl;
+        applyAudioEffects();
+        audioEl.play();
+        player.setVolume(A.vol * 100);
         return;
       }
     }
+
   }catch(e){console.error("Supabase error:",e);}
   
   toast('Track unavailable on YouTube');
@@ -481,14 +569,29 @@ document.getElementById('shuf').onclick=()=>{
 };
 
 document.querySelectorAll('.eb').forEach(b=>{
-  b.onclick=()=>{
+  b.onclick=async ()=>{
+    if(b.classList.contains('on')) return; // Ignore if already selected
+    
     document.querySelectorAll('.eb').forEach(x=>x.classList.remove('on'));
     b.classList.add('on');
     A.effect=b.dataset.e;
-    document.getElementById('badge').textContent=A.effect.toUpperCase();
-    // Removed playIdx() line so the current song doesn't restart!
+    
+    // Update display badge nicely
+    document.getElementById('badge').textContent = A.effect === 'slowedreverb' ? 'SLOWED & REVERB' : A.effect.toUpperCase();
+    
+    // If a song is actively playing, reload it with the new effect seamlessly!
+    if(A.idx !== -1 && player && YT_READY) {
+      const currentSeconds = player.getCurrentTime() || 0;
+      await playIdx(A.idx);
+      
+      // Fast forward the freshly processed audio back to your exact timestamp
+      setTimeout(() => {
+        if(player && YT_READY) player.seekTo(currentSeconds, true);
+      }, 800);
+    }
   };
 });
+
 </script>
 </body>
 </html>
