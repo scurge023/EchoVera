@@ -370,8 +370,9 @@ async function playIdx(i){
     if(r.ok){
       const d=await r.json();
       const yId=d.videoId||d.id||null;
-      if(yId && player && YT_READY){
-  player.loadVideoById(yId);
+            if(yId && player && YT_READY){
+        player.loadVideoById(yId);
+        player.setVolume(A.vol * 100); // Re-enforce volume setting on new video load
         return;
       }
     }
@@ -423,10 +424,15 @@ document.getElementById('sbtn').onclick = triggerSearch;
 document.getElementById('si').onkeydown = (e) => { if (e.key === 'Enter') triggerSearch(); };
 document.getElementById('pbr').onclick=(e)=>{
   if(!player||!YT_READY||A.idx===-1)return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const pct = (e.clientX - rect.left) / rect.width;
+  // Explicitly calculate against the full timeline container width
+  const rect = document.getElementById('pbr').getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
   const d = player.getDuration() || 0;
-  if(d > 0) player.seekTo(d * pct);
+  if(d > 0) {
+    // Seek instantly and force update the visual bar right away
+    player.seekTo(Math.floor(d * pct), true);
+    document.getElementById('pf').style.width = (pct * 100) + '%';
+  }
 };
 
 async function triggerSearch() {
@@ -448,8 +454,17 @@ async function triggerSearch() {
 // --- CONTROLS LISTENERS ---
 document.getElementById('play').onclick=()=>{
   if(!player||!YT_READY||A.idx===-1)return;
-  A.playing?player.pauseVideo():player.playVideo();
+  if(A.playing) {
+    player.pauseVideo();
+    document.getElementById('play').textContent='▶';
+    document.getElementById('play').classList.remove('playing');
+  } else {
+    player.playVideo();
+    document.getElementById('play').textContent='⏸';
+    document.getElementById('play').classList.add('playing');
+  }
 };
+
 document.getElementById('next').onclick=nextT;
 document.getElementById('prev').onclick=()=>{if(A.idx>0)playIdx(A.idx-1);};
 document.getElementById('vol').oninput=(e)=>{
@@ -471,7 +486,7 @@ document.querySelectorAll('.eb').forEach(b=>{
     b.classList.add('on');
     A.effect=b.dataset.e;
     document.getElementById('badge').textContent=A.effect.toUpperCase();
-    if(A.idx!==-1)playIdx(A.idx);
+    // Removed playIdx() line so the current song doesn't restart!
   };
 });
 </script>
