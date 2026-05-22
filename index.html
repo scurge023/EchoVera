@@ -191,7 +191,7 @@ canvas#mvz{width:36px;height:24px;flex-shrink:0;}
 <div id="yt-wrap"><div id="yt-player"></div></div>
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
-const SUPABASE_FUNC='https://tmvsrdbkgtlnpyjfzgln.supabase.co/functions/v1/swift-function;
+const SUPABASE_FUNC='https://tmvsrdbkgtlnpyjfzgln.supabase.co/functions/v1/swift-function';
 const A={queue:[],idx:-1,playing:false,effect:'normal',loop:false,shuffle:false,autoRgb:false,autoInt:null,hue:0,vol:0.8};
 let player=null,YT_READY=false,progInt=null;
 
@@ -439,7 +439,7 @@ async function playIdx(i){
   document.getElementById('nartist').textContent=t.artist;
   document.getElementById('naw').innerHTML=t.img?`<img class="nart" src="${t.img}">`:`<div class="nartph">🎵</div>`;
   
-  toast('Loading track from YouTube...');
+  toast('Loading high-fidelity audio stream...');
   
   try {
     const r=await fetch(SUPABASE_FUNC,{
