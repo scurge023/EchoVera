@@ -254,6 +254,8 @@ player = {
   getDuration: () => audioEl.duration || 0,
   setVolume: (v) => { audioEl.volume = v / 100; }
 };
+audioEl.onplay = () => onPlay();
+audioEl.onpause = () => onPause();
 
 // Handle track ending naturally
 audioEl.onended = () => {
@@ -451,7 +453,7 @@ async function playIdx(i){
         if(r.ok){
       const d=await r.json();
       // Your backend will pass back a playable stream URL or audio URL
-      const streamUrl = d.streamUrl || d.url || (d.videoId ? `https://your-backend-stream-converter.workers.dev/stream?id=${d.videoId}` : null); 
+      const streamUrl = d.streamUrl;
       
       if(streamUrl){
         initAudioEngine();
