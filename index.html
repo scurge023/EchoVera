@@ -191,7 +191,7 @@ canvas#mvz{width:36px;height:24px;flex-shrink:0;}
 <div id="yt-wrap"><div id="yt-player"></div></div>
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
-const SUPABASE_FUNC='https://tmvsrdbkgtlnpyjfzgln.supabase.co/functions/v1/bright-task';
+const SUPABASE_FUNC='https://tmvsrdbkgtlnpyjfzgln.supabase.co/functions/v1/hyper-action';
 
 const A={queue:[],idx:-1,playing:false,effect:'normal',loop:false,shuffle:false,autoRgb:false,autoInt:null,hue:0,vol:0.8};
 let player=null,YT_READY=false,progInt=null;
@@ -442,7 +442,7 @@ async function playIdx(i){
   document.getElementById('nartist').textContent=t.artist;
   document.getElementById('naw').innerHTML=t.img?`<img class="nart" src="${t.img}">`:`<div class="nartph">🎵</div>`;
   
-  toast('Loading high-fidelity audio stream...');
+  toast('Loading audio');
   
   try {
     const r=await fetch(SUPABASE_FUNC,{
@@ -469,7 +469,7 @@ async function playIdx(i){
 
   }catch(e){console.error("Supabase error:",e);}
   
-  toast('Track unavailable on YouTube');
+  toast('Track unavailable');
   setTimeout(nextT,1220);
 }
 
